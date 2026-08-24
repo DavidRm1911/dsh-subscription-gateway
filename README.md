@@ -44,7 +44,7 @@ It's not a native DSH plugin — no `dsh.bundle`, doesn't touch `cordis`. It's j
 
 ## If you want the native version instead
 
-[`dsh-llm-subscription`](https://github.com/DavidRm1911/dsh-llm-subscription) does the same thing as a real `dsh.bundle` plugin — Claude and Gemini show up natively in DSH's own model picker, with a working reasoning-effort selector, instead of living behind the Custom Provider screen. It's the better experience when it works, but it depends on DSH's internal `cordis` plugin API (developer preview, no stable contract). This gateway only talks to DSH's stable, documented Custom Provider mechanism, so it keeps working across DSH updates that might break the native one. Worth keeping both installed for that reason alone.
+[`dsh-llm-subscription`](https://github.com/DavidRm1911/dsh-llm-subscription) does the same thing as a real `dsh.bundle` plugin — Claude, Gemini, and a local Ollama model all show up natively in DSH's own model picker, with a working reasoning-effort selector for Claude, instead of living behind the Custom Provider screen. It's the better experience when it works, but it depends on DSH's internal `cordis` plugin API (developer preview, no stable contract). This gateway only talks to DSH's stable, documented Custom Provider mechanism, so it keeps working across DSH updates that might break the native one. Worth keeping both installed for that reason alone.
 
 ## Security & terms of use
 
