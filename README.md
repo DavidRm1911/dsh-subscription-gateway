@@ -36,6 +36,8 @@ Settings → Models → Add custom provider:
 
 `GET /v1/models` always has the live list if this drifts.
 
+**Read [SECURITY.md](SECURITY.md) before running this** — it explains exactly what this touches (no credentials, ever) and is honest about a real gray area in how this relates to Anthropic's usage terms.
+
 ## A couple of things worth knowing
 
 It only binds to `127.0.0.1` — nothing external can reach it. Every request is a subprocess call or a local HTTP call to Ollama; no credentials get read off disk or sent anywhere by this code. The Claude provider always passes `--strict-mcp-config`, because without it the subprocess quietly inherits whatever MCP servers are configured in your regular Claude Code setup — that's a real bug I hit building this, not a theoretical one.
