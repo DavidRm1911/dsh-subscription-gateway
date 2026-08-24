@@ -1,0 +1,18 @@
+[project]
+name = "dsh-subscription-gateway"
+version = "0.1.0"
+description = "OpenAI-compatible gateway that lets DeepSeek Harness use your existing Claude Code / Antigravity / Ollama logins instead of a paid API key."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+dsh-subscription-gateway = "dsh_gateway.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dsh_gateway"]
