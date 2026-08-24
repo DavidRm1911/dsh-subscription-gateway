@@ -9,6 +9,13 @@ openai-completions, any text as the API key.
 Not a general-purpose OpenAI server — just enough of the protocol
 (POST /v1/chat/completions with streaming, GET /v1/models) for DSH's
 custom-provider client.
+
+No CORS headers, deliberately: DSH's own backend calls this server-to-server,
+which browsers' CORS rules don't apply to anyway. A wildcard
+Access-Control-Allow-Origin here would let any webpage open in the same
+browser call this gateway cross-origin and silently spend the user's
+subscription — this used to have exactly that header; removed once someone
+pointed out what it actually exposed.
 """
 
 from __future__ import annotations
@@ -118,7 +125,6 @@ def _make_handler(providers: dict[str, ModelProvider]) -> type[BaseHTTPRequestHa
             body = json.dumps(payload).encode()
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
@@ -129,7 +135,6 @@ def _make_handler(providers: dict[str, ModelProvider]) -> type[BaseHTTPRequestHa
             self.send_header("Content-Type", "text/event-stream")
             self.send_header("Cache-Control", "no-cache")
             self.send_header("Connection", "close")
-            self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
 
             created = int(time.time())
@@ -153,13 +158,6 @@ def _make_handler(providers: dict[str, ModelProvider]) -> type[BaseHTTPRequestHa
             self.wfile.write(b"data: [DONE]\n\n")
             self.wfile.flush()
 
-        def do_OPTIONS(self) -> None:
-            self.send_response(204)
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Headers", "*")
-            self.send_header("Access-Control-Allow-Methods", "*")
-            self.end_headers()
-
         def do_GET(self) -> None:
             if self.path.rstrip("/") == "/v1/models":
                 data = [{"id": name, "object": "model", "owned_by": "dsh-gateway"} for name in all_model_ids(providers)]
@@ -172,19 +170,24 @@ def _make_handler(providers: dict[str, ModelProvider]) -> type[BaseHTTPRequestHa
                 self._send_json(404, {"error": {"message": "not found"}})
                 return
 
-            length = int(self.headers.get("Content-Length", 0))
             try:
+                length = int(self.headers.get("Content-Length", 0))
                 body = json.loads(self.rfile.read(length))
-            except json.JSONDecodeError:
-                self._send_json(400, {"error": {"message": "invalid JSON body"}})
+                model_name = body.get("model")
+                raw_messages = body.get("messages", [])
+                system = next((m["content"] for m in raw_messages if m.get("role") == "system"), None)
+                messages = [
+                    ModelMessage(role=m["role"], content=m["content"])
+                    for m in raw_messages
+                    if m.get("role") != "system"
+                ]
+            except (ValueError, TypeError, KeyError) as e:
+                # ValueError: bad Content-Length or invalid JSON. KeyError: a
+                # message dict missing "role"/"content". All three used to
+                # crash the request thread with no response instead of a
+                # clean 400 — found while reviewing security-sensitive edges.
+                self._send_json(400, {"error": {"message": f"malformed request body: {e}"}})
                 return
-
-            model_name = body.get("model")
-            raw_messages = body.get("messages", [])
-            system = next((m["content"] for m in raw_messages if m.get("role") == "system"), None)
-            messages = [
-                ModelMessage(role=m["role"], content=m["content"]) for m in raw_messages if m.get("role") != "system"
-            ]
 
             try:
                 provider = resolve_provider(providers, model_name)
