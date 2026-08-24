@@ -36,8 +36,6 @@ Settings → Models → Add custom provider:
 
 `GET /v1/models` always has the live list if this drifts.
 
-**Read [SECURITY.md](SECURITY.md) before running this** — it explains exactly what this touches (no credentials, ever) and is honest about a real gray area in how this relates to Anthropic's usage terms.
-
 ## A couple of things worth knowing
 
 It only binds to `127.0.0.1` — nothing external can reach it. Every request is a subprocess call or a local HTTP call to Ollama; no credentials get read off disk or sent anywhere by this code. The Claude provider always passes `--strict-mcp-config`, because without it the subprocess quietly inherits whatever MCP servers are configured in your regular Claude Code setup — that's a real bug I hit building this, not a theoretical one.
@@ -47,6 +45,16 @@ It's not a native DSH plugin — no `dsh.bundle`, doesn't touch `cordis`. It's j
 ## If you want the native version instead
 
 [`dsh-llm-subscription`](https://github.com/DavidRm1911/dsh-llm-subscription) does the same thing as a real `dsh.bundle` plugin — Claude and Gemini show up natively in DSH's own model picker, with a working reasoning-effort selector, instead of living behind the Custom Provider screen. It's the better experience when it works, but it depends on DSH's internal `cordis` plugin API (developer preview, no stable contract). This gateway only talks to DSH's stable, documented Custom Provider mechanism, so it keeps working across DSH updates that might break the native one. Worth keeping both installed for that reason alone.
+
+## Security & terms of use
+
+This never reads, stores, extracts, or transmits any credential. It shells out to the `claude` / `agy` CLI binaries already installed and logged in on your machine, and reads their stdout. It binds to `127.0.0.1` only. Nothing is shared, proxied, or routed between users — every request is served by your own already-authenticated session.
+
+In February 2026, Anthropic explicitly banned third-party tools (OpenClaw, NanoClaw) that extracted a Claude subscription's OAuth token and reused it to authenticate a separate, direct API client — bypassing Claude Code entirely. That's not what this does. Anthropic's own guidance: *"OAuth authentication is intended exclusively for purchasers of Claude Free, Pro, Max, Team, and Enterprise subscription plans and is designed to support ordinary use of Claude Code and other native Anthropic applications."* What's explicitly prohibited is reselling or intermediating Claude usage between users — each end user authenticating with their own credential is the compliant pattern, and that's what happens here.
+
+That said, Anthropic's broader guidance steers products that *wrap* Claude Code toward API-key billing as the unambiguous, explicitly-sanctioned path for third-party integrations. This gateway doesn't do that — it's a real gray area, not a clearly-blessed one. Not legal advice, no guarantee of compliance with Anthropic's (or Google's, for Antigravity) current or future terms. If you're running this for anything beyond personal use, read [Anthropic's Usage Policy](https://www.anthropic.com/legal/aup) and Claude Code's [legal and compliance docs](https://docs.anthropic.com/en/docs/claude-code/legal-and-compliance) yourself.
+
+**Standard this project follows for any provider it adds**: never read/cache/transmit a credential on the user's behalf; only ever invoke the vendor's own official CLI in a documented automation mode; never implement a login flow ourselves; no usage pooled or shared across users.
 
 ## License
 
