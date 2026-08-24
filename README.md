@@ -1,55 +1,46 @@
 # dsh-subscription-gateway
 
-Use your existing **Claude Code**, **Antigravity** (Gemini), or local **Ollama** login inside [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) — no API key, no per-token billing.
+If you already pay for Claude Pro/Max or have Antigravity access, [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) still wants a separate, metered API key before it'll let you use those models — its Custom Provider screen only speaks to real HTTP APIs, not to a CLI you're already logged into.
 
-## Why
+This is a tiny local server that closes that gap. It speaks the `openai-completions` protocol DSH expects, but instead of billing you per token it shells out to `claude -p` or `agy -p` — the same CLIs you already use, already logged in. Point DSH at it, and "claude-opus" or "gemini-flash-high" just show up as models you can pick, for free.
 
-DSH's built-in "Custom provider" screen expects an HTTP endpoint speaking the `openai-completions` protocol, plus a real API key. If you already pay for Claude Pro/Max or have Antigravity access, you don't have — and shouldn't need — a separate metered API key just to use those models inside DSH.
-
-This is a small local HTTP server that speaks that protocol for real, but serves requests by shelling out to the CLIs you're already logged into (`claude`, `agy`) or to a local Ollama model. Nothing you type goes anywhere except where those CLIs would normally send it.
-
-## Install & run
+## Install
 
 ```bash
-pip install dsh-subscription-gateway   # or: uv tool install dsh-subscription-gateway
+pip install dsh-subscription-gateway
 dsh-subscription-gateway
 ```
 
-Requires at least one of:
-- [`claude`](https://claude.com/claude-code) CLI, logged in (`claude login`)
-- `agy` (Antigravity) CLI, logged in
-- [Ollama](https://ollama.com), with a model pulled (default: `qwen3.5:9b`)
+You need at least one of these already set up:
 
-Any of these being missing just means its model ids won't resolve — the other two still work.
+- [Claude Code](https://claude.com/claude-code) CLI, logged in (`claude login`)
+- `agy` (Antigravity), logged in
+- [Ollama](https://ollama.com) with a model pulled — `qwen3.5:9b` by default
 
-## Connect it to DSH
+Missing one just means its models won't show up; the rest still work fine.
 
-In DSH: **Settings → Models → Add custom provider**
+## Wiring it into DSH
 
-| Field | Value |
-|---|---|
-| Base URL | `http://localhost:8899/v1` |
-| API protocol | `openai-completions` |
-| API key | any non-empty text — not checked |
-| Models | click "Fetch available models", or add manually (see below) |
+Settings → Models → Add custom provider:
 
-## Available model ids
+- **Base URL**: `http://localhost:8899/v1`
+- **API protocol**: `openai-completions`
+- **API key**: anything — it's not checked
+- Click "Fetch available models," or add them by hand (list below)
 
-- `claude`, `claude-haiku`, `claude-sonnet`, `claude-opus`, `claude-fable` — each combinable with a reasoning-effort suffix: `-low`, `-medium`, `-high`, `-xhigh`, `-max` (e.g. `claude-opus-max`)
+## Models
+
+- `claude`, `claude-haiku`, `claude-sonnet`, `claude-opus`, `claude-fable` — append `-low` / `-medium` / `-high` / `-xhigh` / `-max` for reasoning effort, e.g. `claude-opus-max`
 - `gemini`, `gemini-flash-low/medium/high`, `gemini-flash36-low/medium/high`, `gemini-pro-low/high`
-- `qwen-local` (local Ollama, `$0` per call)
+- `qwen-local` — whatever's running in Ollama, $0 either way
 
-`GET /v1/models` lists the full set at runtime.
+`GET /v1/models` always has the live list if this drifts.
 
-## Security notes
+## A couple of things worth knowing
 
-- Runs on `127.0.0.1` only — not exposed to your network by default.
-- Each request shells out to a CLI subprocess (`claude -p` / `agy -p`) or calls Ollama's local HTTP API. No credentials are read from disk or transmitted anywhere by this gateway itself.
-- The Claude provider passes `--strict-mcp-config`, so it never inherits MCP servers or tools from your ambient Claude Code configuration — each request is a clean completion.
+It only binds to `127.0.0.1` — nothing external can reach it. Every request is a subprocess call or a local HTTP call to Ollama; no credentials get read off disk or sent anywhere by this code. The Claude provider always passes `--strict-mcp-config`, because without it the subprocess quietly inherits whatever MCP servers are configured in your regular Claude Code setup — that's a real bug I hit building this, not a theoretical one.
 
-## What this is not
-
-Not a DSH plugin in the native `dsh.bundle`/`cordis` sense — it's a standalone process DSH talks to over HTTP through its existing Custom Provider mechanism. No streaming token-by-token (the underlying CLIs don't expose that in headless mode); responses arrive as a single chunk framed as SSE for client compatibility.
+It's not a native DSH plugin — no `dsh.bundle`, doesn't touch `cordis`. It's just a process DSH talks to over HTTP, through the Custom Provider mechanism that already exists. And there's no real token-by-token streaming, because the underlying CLIs don't expose that in headless mode; you get the full response framed as one SSE chunk, which is enough for DSH's client to not choke on it.
 
 ## License
 
